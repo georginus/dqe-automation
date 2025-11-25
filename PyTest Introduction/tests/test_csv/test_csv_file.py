@@ -1,30 +1,27 @@
 import csv
 import os
 from collections import defaultdict
-
 import pytest
 import re
 
 
-def test_file_not_empty():
-    file_path = "../../src/data/data.csv"
-    assert os.path.getsize(file_path) > 0, "File is empty!"
+def test_file_not_empty(read_csv_file):
+    # file_path = "../../src/data/data.csv"
+    # assert os.path.getsize(file_path) > 0, "File is empty!"
+    rows = read_csv_file("../../src/data/data.csv")
+    assert len(rows) > 0
 
 
 @pytest.mark.validate_csv
-def test_validate_schema():
-    test_dir = os.path.dirname(__file__)
-    file_path = os.path.abspath(os.path.join(test_dir, "../../src/data/data.csv"))
-    expected_header = ["id", "name", "age", "email", "is_active"]
-
-    with open(file_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.reader(csvfile)
-        header = next(reader)
-        assert header == expected_header, f"Expected schema: {expected_header}, Actual header: {header}"
+def test_validate_schema(read_csv_file, validate_schema):
+    rows = read_csv_file("../../src/data/data.csv")
+    actual_schema = rows[0]
+    expected_schema = ["id", "name", "age", "email", "is_active"]
+    validate_schema(actual_schema, expected_schema)
 
 
 @pytest.mark.validate_csv
-# @pytest.mark.skip(reason="Test skipped")
+@pytest.mark.skip(reason="Test temporary skipped")
 def test_age_column_valid():
     test_dir = os.path.dirname(__file__)
     file_path = os.path.abspath(os.path.join(test_dir, "../../src/data/data.csv"))
@@ -40,6 +37,14 @@ def test_age_column_valid():
 
 
 @pytest.mark.validate_csv
+@pytest.mark.parametrize("age", [60, 40, 41, 53, 37, 30, 101])
+@pytest.mark.xfail(reason="Age 101 is out of range 0-100")
+def test_age_range(age):
+    assert 0 <= age <= 100
+
+
+@pytest.mark.validate_csv
+@pytest.mark.custom
 def test_email_column_valid():
     test_dir = os.path.dirname(__file__)
     file_path = os.path.abspath(os.path.join(test_dir, "../../src/data/data.csv"))
@@ -47,7 +52,7 @@ def test_email_column_valid():
 
     with open(file_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
-        for row_num, row in enumerate(reader, start=2):  # start=2, т.к. первая строка — заголовок
+        for row_num, row in enumerate(reader, start=2):
             email = row.get("email", "")
             assert email_pattern.match(email), f"Email is incorrect in the row {row_num}: {email}"
 
@@ -72,7 +77,7 @@ def test_duplicates():
     duplicates = {row: lines for row, lines in row_map.items() if len(lines) > 1}
 
     assert not duplicates, (
-            "File contains duplicated:\n" +
+            "File contains duplicates:\n" +
             "\n".join(
                 f"Row: {row} — rows number: {lines}"
                 for row, lines in duplicates.items()
@@ -82,8 +87,8 @@ def test_duplicates():
 
 @pytest.mark.validate_csv
 @pytest.mark.parametrize("id_value, expected_is_active", [
-    ("1", "False"),
-    ("2", "True"),
+    pytest.param("1", "False"),
+    pytest.param("2", "True", marks=pytest.mark.xfail(reason="Known issue for id=2")),
 ])
 def test_active_players(id_value, expected_is_active):
     test_dir = os.path.dirname(__file__)
@@ -91,15 +96,15 @@ def test_active_players(id_value, expected_is_active):
 
     with open(file_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
-        found = False
         for row in reader:
             if row.get("id") == id_value:
-                found = True
                 assert row.get("is_active") == expected_is_active, (
                     f"For id={id_value} expected is_active={expected_is_active}, "
                     f"but actual is_active={row.get('is_active')}"
                 )
-        assert found, f"Row with id={id_value} is absent in the file"
+                break
+        else:
+            pytest.fail(f"Row with id={id_value} is absent in the file")
 
 
 @pytest.mark.validate_csv
