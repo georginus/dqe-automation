@@ -37,8 +37,7 @@ pipeline {
         stage('Debug: Check pytest in venv') {
             steps {
                 sh '. venv/bin/activate && which pytest || true'
-                sh '. venv/bin/activate &&
-                pip 'list | grep pytest || true'
+                sh '. venv/bin/activate && pip list | grep pytest || true'
                 sh 'ls -l venv/bin/pytest || true'
             }
         }
