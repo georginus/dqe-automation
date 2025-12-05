@@ -61,18 +61,6 @@ pipeline {
                 archiveArtifacts artifacts: 'html_report/**', allowEmptyArchive: true
             }
         }
-
-        stage('Publish HTML Report') {
-            steps {
-                publishHTML(target: [
-                    allowMissing: false,
-                    keepAll: true,
-                    reportDir: "html_report",
-                    reportFiles: "report.html",
-                    reportName: "PyTest Data Quality Report"
-                ])
-            }
-        }
     }
     post {
         always {
