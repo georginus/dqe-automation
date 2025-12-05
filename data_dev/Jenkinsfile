@@ -36,15 +36,15 @@ pipeline {
         stage('Run PyTest DQ Framework') {
             steps {
                 sh '''
-                    . venv/bin/activate && \
-                    pytest tests -m "parquet_data" \
-                        --db_host=localhost \
-                        --db_port=5432 \
-                        --db_name=mydatabase \
-                        --db_user=$POSTGRES_SECRET_USR \
-                        --db_password=$POSTGRES_SECRET_PSW \
-                        --html=html_report/report.html
-                '''
+                        . venv/bin/activate && \
+                        venv/bin/pytest tests -m "parquet_data" \
+                            --db_host=localhost \
+                            --db_port=5432 \
+                            --db_name=mydatabase \
+                            --db_user=$POSTGRES_SECRET_USR \
+                            --db_password=$POSTGRES_SECRET_PSW \
+                            --html=html_report/report.html
+                    '''
             }
         }
 
