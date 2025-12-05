@@ -81,29 +81,26 @@ pipeline {
         stage('Install system dependencies') {
             steps {
                 sh 'apt-get update'
-                sh 'apt-get install -y python3 python3-pip python3-venv libpq-dev'
+                sh 'apt-get install -y python3 python3-pip libpq-dev'
             }
         }
 
-        stage('Create venv and install Python dependencies') {
+        stage('Install Python dependencies') {
             steps {
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate && pip install --upgrade pip'
-                sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh 'pip3 install --upgrade pip'
+                sh 'pip3 install -r requirements.txt'
             }
         }
 
         stage('Run main pipeline (optional)') {
             steps {
-                sh '. venv/bin/activate && export PYTHONPATH=$WORKSPACE && python3 data_dev/main.py'
+                sh 'export PYTHONPATH=$WORKSPACE && python3 data_dev/main.py'
             }
         }
 
         stage('Run PyTest DQ Framework') {
             steps {
                 sh '''
-
-                    . venv/bin/activate && \
                     pytest tests -m "parquet_data" \
                         --db_host=localhost \
                         --db_port=5432 \
@@ -126,7 +123,8 @@ pipeline {
                 publishHTML(target: [
                     allowMissing: false,
                     keepAll: true,
-                    reportDir: 'html_report',
+                    reportDir: '
+html_report',
                     reportFiles: 'report.html',
                     reportName: 'PyTest Data Quality Report'
                 ])
