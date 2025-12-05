@@ -24,6 +24,7 @@ pipeline {
                 sh 'python3 -m venv venv'
                 sh '. venv/bin/activate && pip install --upgrade pip'
                 sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh '. venv/bin/activate && pip install pytest'
             }
         }
 
@@ -37,7 +38,7 @@ pipeline {
             steps {
                 sh '. venv/bin/activate && which pytest || true'
                 sh '. venv/bin/activate &&
-         pip list | grep pytest || true'
+                pip 'list | grep pytest || true'
                 sh 'ls -l venv/bin/pytest || true'
             }
         }
