@@ -56,7 +56,7 @@ pipeline {
                         --db_user=$POSTGRES_SECRET_USR \
                         --db_password=$POSTGRES_SECRET_PSW \
                         --html=html_report/report.html \
-                        --self-contained-html || true
+                        --self-contained-html || true \
                         --tb=long
                 '''
             }
