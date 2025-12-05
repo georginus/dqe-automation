@@ -3,6 +3,9 @@ pipeline {
 
     environment {
         POSTGRES_SECRET = credentials('jenkins-postgres-credentials')
+        PARQUET_PATH_FACILITY_NAME = "/parquet_data/facility_name_min_time_spent_per_visit_date"
+        PARQUET_PATH_FACILITY_TYPE = "/parquet_data/facility_type_avg_time_spent_per_visit_date"
+        PARQUET_PATH_PATIENT_SUM = "/parquet_data/patient_sum_treatment_cost_per_facility_type"
     }
 
     stages {
@@ -47,11 +50,13 @@ pipeline {
                 sh '''
                     . venv/bin/activate && \
                     venv/bin/pytest "PyTest DQ Framework/tests" -m "parquet_data" \
-                        --db_host=localhost \
+                        --db_host=postgres \
                         --db_port=5432 \
                         --db_name=mydatabase \
                         --db_user=$POSTGRES_SECRET_USR \
-                        --db_password=$POSTGRES_SECRET_PSW
+                        --db_password=$POSTGRES_SECRET_PSW \
+                        --html=html_report/report.html \
+                        --self-contained-html || true
                 '''
             }
         }
