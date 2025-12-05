@@ -51,7 +51,8 @@ pipeline {
                         --db_port=5432 \
                         --db_name=mydatabase \
                         --db_user=$POSTGRES_SECRET_USR \
-                        --db_password=$POSTGRES_SECRET_PSW
+                        --db_password=$POSTGRES_SECRET_PSW \
+                        --html=html_report/report.html --self-contained-html
                 '''
             }
         }
