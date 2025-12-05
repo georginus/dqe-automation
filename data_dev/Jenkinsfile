@@ -82,6 +82,13 @@ pipeline {
     post {
         always {
             echo 'Pipeline execution completed.'
+            publishHTML(target: [
+            allowMissing: false,
+            keepAll: true,
+            reportDir: "html_report",
+            reportFiles: "report.html",
+            reportName: "PyTest Data Quality Report"
+        ])
         }
         success {
             echo 'Pipeline executed successfully!'
