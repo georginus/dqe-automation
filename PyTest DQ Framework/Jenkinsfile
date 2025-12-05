@@ -24,27 +24,34 @@ pipeline {
                 sh 'python3 -m venv venv'
                 sh '. venv/bin/activate && pip install --upgrade pip'
                 sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh '. venv/bin/activate && pip install pytest'
             }
         }
 
         stage('Run main pipeline (optional)') {
             steps {
-                sh '. venv/bin/activate && python data_dev/main.py'
+                sh '. venv/bin/activate && export PYTHONPATH=$WORKSPACE && python3 data_dev/main.py'
+            }
+        }
+
+        stage('Debug: Check pytest in venv') {
+            steps {
+                sh '. venv/bin/activate && which pytest || true'
+                sh '. venv/bin/activate && pip list | grep pytest || true'
+                sh 'ls -l venv/bin/pytest || true'
             }
         }
 
         stage('Run PyTest DQ Framework') {
             steps {
                 sh '''
-
                     . venv/bin/activate && \
-                    pytest tests -m "parquet_data" \
+                    venv/bin/pytest "PyTest DQ Framework/tests" -m "parquet_data" \
                         --db_host=localhost \
                         --db_port=5432 \
                         --db_name=mydatabase \
                         --db_user=$POSTGRES_SECRET_USR \
-                        --db_password=$POSTGRES_SECRET_PSW \
-                        --html=html_report/report.html
+                        --db_password=$POSTGRES_SECRET_PSW
                 '''
             }
         }
@@ -60,9 +67,9 @@ pipeline {
                 publishHTML(target: [
                     allowMissing: false,
                     keepAll: true,
-                    reportDir: 'html_report',
-                    reportFiles: 'report.html',
-                    reportName: 'PyTest Data Quality Report'
+                    reportDir: "html_report",
+                    reportFiles: "report.html",
+                    reportName: "PyTest Data Quality Report"
                 ])
             }
         }
