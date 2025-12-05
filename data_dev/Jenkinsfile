@@ -48,8 +48,7 @@ pipeline {
             }
         }
 
-        stage('Archive Test
- Report') {
+        stage('Archive Test Report') {
             steps {
                 archiveArtifacts artifacts: 'html_report/**', allowEmptyArchive: true
             }
