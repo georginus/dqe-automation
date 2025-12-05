@@ -1,9 +1,3 @@
-"""
-Description: Data Quality checks for all datasets.
-Requirement(s): TICKET-1234
-Author(s): Name Surname
-"""
-
 import pytest
 
 # 1. facility_name_min_time_spent_per_visit_date

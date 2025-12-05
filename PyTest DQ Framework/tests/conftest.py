@@ -77,7 +77,6 @@ def target_data_patient_sum_treatment_cost_per_facility_type(parquet_reader):
         "/parquet_data/patient_sum_treatment_cost_per_facility_type"
     )
     df = parquet_reader.process(target_path, include_subfolders=True)
-    # Добавь преобразование типов, если есть даты или другие ключевые поля
     return df
 
 @pytest.fixture(scope='session')
