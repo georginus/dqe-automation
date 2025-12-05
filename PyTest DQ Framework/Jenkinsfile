@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+
+    environment {
+        POSTGRES_SECRET = credentials('jenkins-postgres-credentials')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install system dependencies') {
+            steps {
+                sh 'apt-get update'
+                sh 'apt-get install -y python3 python3-pip python3-venv libpq-dev'
+            }
+        }
+
+        stage('Create venv and install Python dependencies') {
+            steps {
+                sh 'python3 -m venv venv'
+                sh '. venv/bin/activate && pip install --upgrade pip'
+                sh '. venv/bin/activate && pip install -r requirements.txt'
+            }
+        }
+
+        stage('Run main pipeline (optional)') {
+            steps {
+                sh '. venv/bin/activate && python data_dev/main.py'
+            }
+        }
+
+        stage('Run PyTest DQ Framework') {
+            steps {
+                sh '''
+
+                    . venv/bin/activate && \
+                    pytest tests -m "parquet_data" \
+                        --db_host=localhost \
+                        --db_port=5432 \
+                        --db_name=mydatabase \
+                        --db_user=$POSTGRES_SECRET_USR \
+                        --db_password=$POSTGRES_SECRET_PSW \
+                        --html=html_report/report.html
+                '''
+            }
+        }
+
+        stage('Archive Test Report') {
+            steps {
+                archiveArtifacts artifacts: 'html_report/**', allowEmptyArchive: true
+            }
+        }
+
+        stage('Publish HTML Report') {
+            steps {
+                publishHTML(target: [
+                    allowMissing: false,
+                    keepAll: true,
+                    reportDir: 'html_report',
+                    reportFiles: 'report.html',
+                    reportName: 'PyTest Data Quality Report'
+                ])
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+        }
+        success {
+            echo 'Pipeline executed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs for details.'
+        }
+    }
+}
