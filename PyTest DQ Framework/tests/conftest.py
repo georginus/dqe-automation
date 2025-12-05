@@ -1,5 +1,6 @@
 import os
 import pytest
+import pandas as pd
 from src.connectors.postgres.postgres_connector import PostgresConnectorContextManager
 from src.connectors.file_system.parquet_reader import ParquetReader
 from src.data_quality.data_quality_validation_library import DataQualityLibrary
@@ -26,6 +27,7 @@ def db_connection(request):
     db_password = request.config.getoption("--db_password")
     try:
         with PostgresConnectorContextManager(
+
             db_user=db_user,
             db_password=db_password,
             db_host=db_host,
@@ -48,12 +50,14 @@ def parquet_reader():
 
 @pytest.fixture(scope='module')
 def target_data_facility_name_min_time_spent_per_visit_date(parquet_reader):
-    # Универсальный путь: сначала берем из переменной окружения, иначе используем дефолт для Jenkins
     target_path = os.getenv(
         "PARQUET_PATH_FACILITY_NAME",
         "/parquet_data/facility_name_min_time_spent_per_visit_date"
     )
-    return parquet_reader.process(target_path, include_subfolders=True)
+    df = parquet_reader.process(target_path, include_subfolders=True)
+    if not df.empty and 'visit_date' in df.columns:
+        df['visit_date'] = pd.to_datetime(df['visit_date'])
+    return df
 
 @pytest.fixture(scope='module')
 def target_data_facility_type_avg_time_spent_per_visit_date(parquet_reader):
@@ -61,7 +65,10 @@ def target_data_facility_type_avg_time_spent_per_visit_date(parquet_reader):
         "PARQUET_PATH_FACILITY_TYPE",
         "/parquet_data/facility_type_avg_time_spent_per_visit_date"
     )
-    return parquet_reader.process(target_path, include_subfolders=True)
+    df = parquet_reader.process(target_path, include_subfolders=True)
+    if not df.empty and 'visit_date' in df.columns:
+        df['visit_date'] = pd.to_datetime(df['visit_date'])
+    return df
 
 @pytest.fixture(scope='module')
 def target_data_patient_sum_treatment_cost_per_facility_type(parquet_reader):
@@ -69,7 +76,9 @@ def target_data_patient_sum_treatment_cost_per_facility_type(parquet_reader):
         "PARQUET_PATH_PATIENT_SUM",
         "/parquet_data/patient_sum_treatment_cost_per_facility_type"
     )
-    return parquet_reader.process(target_path, include_subfolders=True)
+    df = parquet_reader.process(target_path, include_subfolders=True)
+    # Добавь преобразование типов, если есть даты или другие ключевые поля
+    return df
 
 @pytest.fixture(scope='session')
 def data_quality_library():
