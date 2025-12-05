@@ -1,3 +1,4 @@
+import os
 import pytest
 from src.connectors.postgres.postgres_connector import PostgresConnectorContextManager
 from src.connectors.file_system.parquet_reader import ParquetReader
@@ -47,17 +48,27 @@ def parquet_reader():
 
 @pytest.fixture(scope='module')
 def target_data_facility_name_min_time_spent_per_visit_date(parquet_reader):
-    target_path = r"C:\Users\Heorhi_Chychenkau\PycharmProjects\dqe-automation\parquet_data\facility_name_min_time_spent_per_visit_date"
+    # Универсальный путь: сначала берем из переменной окружения, иначе используем дефолт для Jenkins
+    target_path = os.getenv(
+        "PARQUET_PATH_FACILITY_NAME",
+        "/parquet_data/facility_name_min_time_spent_per_visit_date"
+    )
     return parquet_reader.process(target_path, include_subfolders=True)
 
 @pytest.fixture(scope='module')
 def target_data_facility_type_avg_time_spent_per_visit_date(parquet_reader):
-    target_path = r"C:\Users\Heorhi_Chychenkau\PycharmProjects\dqe-automation\parquet_data\facility_type_avg_time_spent_per_visit_date"
+    target_path = os.getenv(
+        "PARQUET_PATH_FACILITY_TYPE",
+        "/parquet_data/facility_type_avg_time_spent_per_visit_date"
+    )
     return parquet_reader.process(target_path, include_subfolders=True)
 
 @pytest.fixture(scope='module')
 def target_data_patient_sum_treatment_cost_per_facility_type(parquet_reader):
-    target_path = r"C:\Users\Heorhi_Chychenkau\PycharmProjects\dqe-automation\parquet_data\patient_sum_treatment_cost_per_facility_type"
+    target_path = os.getenv(
+        "PARQUET_PATH_PATIENT_SUM",
+        "/parquet_data/patient_sum_treatment_cost_per_facility_type"
+    )
     return parquet_reader.process(target_path, include_subfolders=True)
 
 @pytest.fixture(scope='session')
