@@ -95,7 +95,7 @@ pipeline {
 
         stage('Run main pipeline (optional)') {
             steps {
-                sh '. venv/bin/activate && python data_dev/main.py'
+                sh '. venv/bin/activate && export PYTHONPATH=$WORKSPACE && python3 data_dev/main.py'
             }
         }
 
