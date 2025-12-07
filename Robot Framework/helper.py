@@ -1,5 +1,6 @@
 from robot.api.deco import keyword
 import pandas as pd
+from robot.api import logger
 import json
 import re
 import os
@@ -32,18 +33,23 @@ def parse_plotly_table_from_script(script_text):
         row = [values[j][i] for j in range(len(values))]
         rows.append(row)
     df = pd.DataFrame(rows, columns=headers)
+    print("df_html (from HTML):")
+    print(df)
     if "Average Time Spent" in df.columns:
         df["Average Time Spent"] = pd.to_numeric(df["Average Time Spent"], errors="coerce").round(2)
     df["Visit Date"] = df["Visit Date"].astype(str).str.strip()
-    print("df_html (from HTML):")
+    print("df_html after cleaning:")
     print(df)
     df.to_csv("debug_df_html.csv", index=False)
     return df
 
 @keyword
 def filter_dataframe_by_date(df, filter_date):
+    print("=== filter_dataframe_by_date called ===")
     if 'Visit Date' in df.columns:
         df['Visit Date'] = df['Visit Date'].astype(str).str.strip()
+        print("Visit Date values before filtering:", df['Visit Date'].unique())
+        print("filter_date:", repr(filter_date), type(filter_date))
         filtered = df[df['Visit Date'] == filter_date].reset_index(drop=True)
         print(f"df_html after filtering by date {filter_date}:")
         print(filtered)
@@ -54,16 +60,21 @@ def filter_dataframe_by_date(df, filter_date):
 
 @keyword
 def prepare_parquet_for_comparison(folder, filter_date=None):
+    logger.info("=== prepare_parquet_for_comparison called ===")
     parquet_files = []
     for root, dirs, files in os.walk(folder):
         for file in files:
             if file.endswith('.parquet'):
                 parquet_files.append(os.path.join(root, file))
+    logger.info("Найдено parquet-файлов: %s" % parquet_files)
     if not parquet_files:
-        print("Нет parquet-файлов!")
+        logger.info("Нет parquet-файлов!")
         pd.DataFrame().to_csv("debug_df_parquet.csv", index=False)
         return pd.DataFrame()
     df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+    logger.info("Столбцы после чтения parquet: %s" % df.columns)
+    logger.info("Первые строки: %s" % df.head())
+    logger.info("Типы данных: %s" % df.dtypes)
 
     rename_map = {
         'facility_type': 'Facility Type',
@@ -72,26 +83,25 @@ def prepare_parquet_for_comparison(folder, filter_date=None):
         'min_time_spent': 'Average Time Spent',
     }
     df = df.rename(columns=rename_map)
-    print("Столбцы после переименования:", df.columns)
-    print("Первые строки после переименования:")
-    print(df.head())
-    print("Типы данных после переименования:")
-    print(df.dtypes)
+    logger.info("Столбцы после переименования: %s" % df.columns)
+    logger.info("Первые строки после переименования: %s" % df.head())
 
     if 'Visit Date' in df.columns:
-        # Преобразуем к строке и убираем пробелы
+        if pd.api.types.is_datetime64_any_dtype(df['Visit Date']):
+            df['Visit Date'] = df['Visit Date'].dt.strftime('%Y-%m-%d')
+        else:
+            df['Visit Date'] = pd.to_datetime(df['Visit Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+        df = df[df['Visit Date'].notna()]
         df['Visit Date'] = df['Visit Date'].astype(str).str.strip()
-        # Преобразуем к формату YYYY-MM-DD
-        df['Visit Date'] = pd.to_datetime(df['Visit Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-        print("Все значения Visit Date после преобразования:", df['Visit Date'].unique())
-        print("Сравниваем с датой:", repr(filter_date))
+        logger.info("Visit Date после форматирования: %s" % df['Visit Date'].unique())
+        logger.info("filter_date: %r, %s" % (filter_date, type(filter_date)))
         for val in df['Visit Date'].unique():
-            print(f"'{val}' == '{filter_date}' ? {val == filter_date}")
+            logger.info("'%s' == '%s' ? %s" % (val, filter_date, val == filter_date))
 
     if filter_date and 'Visit Date' in df.columns:
+        filter_date = str(filter_date).strip()
         filtered = df[df['Visit Date'] == filter_date].reset_index(drop=True)
-        print("df_parquet после фильтрации по дате:")
-        print(filtered)
+        logger.info("df_parquet после фильтрации по дате: %s" % filtered)
         filtered.to_csv("debug_df_parquet.csv", index=False)
         df = filtered
     else:
@@ -103,12 +113,12 @@ def prepare_parquet_for_comparison(folder, filter_date=None):
     sort_cols = [col for col in ['Facility Type', 'Visit Date', 'Average Time Spent'] if col in df.columns]
     df = df.sort_values(by=sort_cols).reset_index(drop=True)
 
-    print("df_parquet финальный для сравнения:")
-    print(df)
+    logger.info("df_parquet финальный для сравнения: %s" % df)
     return df
 
 @keyword
 def compare_dataframes(df1, df2):
+    print("=== compare_dataframes called ===")
     for col in ["Facility Type", "Visit Date"]:
         if col in df1.columns:
             df1[col] = df1[col].astype(str).str.strip()
