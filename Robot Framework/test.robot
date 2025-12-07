@@ -9,7 +9,6 @@ Suite Teardown    Close Browser
 ${REPORT_FILE}      ${CURDIR}/../Selenium Introduction/report.html
 ${PARQUET_FOLDER}   ${CURDIR}/parquet_data/facility_name_min_time_spent_per_visit_date
 ${FILTER_DATE}      2025-12-05
-
 *** Test Cases ***
 Compare HTML Table With Parquet Dataset
     Wait Until Element Is Visible    css:.plotly-graph-div    10s
@@ -40,4 +39,4 @@ Get Plotly Script Text
     ...        }
     ...    }
     ...    return null;
-    [Return]    ${plotly_script}
+    RETURN    ${plotly_script}
