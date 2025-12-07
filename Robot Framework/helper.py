@@ -4,18 +4,9 @@ import json
 import re
 import os
 
-
-
-@keyword
-def read_html_table(table_html):
-    # Reads HTML table string into a Pandas DataFrame
-    dfs = pd.read_html(table_html)
-    return dfs[0] if dfs else pd.DataFrame()
-
-
 @keyword
 def parse_plotly_table_from_script(script_text):
-    # Найти массив данных между первой [ и соответствующей ]
+    # Find the first [ and its matching ]
     arr_start = script_text.find('[')
     depth = 0
     end = -1
@@ -28,8 +19,8 @@ def parse_plotly_table_from_script(script_text):
                 end = i
                 break
     arr_text = script_text[arr_start:end+1]
-    # Преобразовать в валидный JSON
-    arr_text = re.sub(r"(\w+):", r'"\1":', arr_text)  # Ключи в кавычки
+    # Convert to valid JSON
+    arr_text = re.sub(r"(\w+):", r'"\1":', arr_text)  # Keys in quotes
     arr_text = arr_text.replace("'", '"')
     arr = json.loads(arr_text)
     table = next((x for x in arr if x.get("type") == "table"), None)
@@ -37,81 +28,99 @@ def parse_plotly_table_from_script(script_text):
         return pd.DataFrame()
     headers = table["header"]["values"]
     values = table["cells"]["values"]
-
     rows = []
     for i in range(len(values[0])):
         row = [values[j][i] for j in range(len(values))]
         rows.append(row)
     df = pd.DataFrame(rows, columns=headers)
+    # Ensure correct types
+    if "Average Time Spent" in df.columns:
+        df["Average Time Spent"] = pd.to_numeric(df["Average Time Spent"], errors="coerce").round(2)
     return df
-
 
 @keyword
-def convert_table_data_to_dataframe(table_data):
-    # table_data: list of lists, first row is header
-    if not table_data or len(table_data) < 2:
-        return pd.DataFrame()
-    header = table_data[0]
-    rows = table_data[1:]
-    df = pd.DataFrame(rows, columns=header)
-    # Приведение типов (например, float)
-    for col in df.columns:
-        try:
-            df[col] = pd.to_numeric(df[col])
-        except Exception:
-            pass
+def filter_dataframe_by_date(df, filter_date):
+    if 'Visit Date' in df.columns:
+        return df[df['Visit Date'] == filter_date].reset_index(drop=True)
     return df
-
 
 @keyword
 def prepare_parquet_for_comparison(folder, filter_date=None):
-    # Recursively find all .parquet files in all subfolders
     parquet_files = []
     for root, dirs, files in os.walk(folder):
         for file in files:
             if file.endswith('.parquet'):
                 parquet_files.append(os.path.join(root, file))
     if not parquet_files:
+        print("Нет parquet-файлов!")
         return pd.DataFrame()
     df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
 
-    # Привести названия столбцов к нужным
+    print("Первые строки parquet до переименования:")
+    print(df.head())
+    print("Типы данных до переименования:")
+    print(df.dtypes)
+
     rename_map = {
         'facility_type': 'Facility Type',
         'visit_date': 'Visit Date',
         'avg_time_spent': 'Average Time Spent',
-        'min_time_spent': 'Average Time Spent',  # если у тебя min_time_spent
+        'min_time_spent': 'Average Time Spent',
     }
     df = df.rename(columns=rename_map)
 
-    # Преобразовать дату к строке
-    df['Visit Date'] = pd.to_datetime(df['Visit Date']).dt.strftime('%Y-%m-%d')
+    print("Первые строки после переименования:")
+    print(df.head())
+    print("Типы данных после переименования:")
+    print(df.dtypes)
 
-    # Фильтрация по дате, если нужно
-    if filter_date:
-        df = df[df['Visit Date'] == filter_date]
+    # Преобразовать дату к строке до фильтрации!
+    if 'Visit Date' in df.columns:
+        print("Уникальные значения Visit Date до преобразования:", df['Visit Date'].unique())
+        df['Visit Date'] = pd.to_datetime(df['Visit Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+        print("Уникальные значения Visit Date после преобразования:", df['Visit Date'].unique())
 
-    # Округлить значения float
+    # Теперь фильтрация
+    if filter_date and 'Visit Date' in df.columns:
+        print(f"Фильтруем по дате: {filter_date}")
+        filtered = df[df['Visit Date'] == filter_date].reset_index(drop=True)
+        print("DataFrame после фильтрации по дате:")
+        print(filtered)
+        df = filtered
+
     if 'Average Time Spent' in df.columns:
         df['Average Time Spent'] = pd.to_numeric(df['Average Time Spent'], errors='coerce').round(2)
 
-    # Сортировка для корректного сравнения
-    df = df.sort_values(by=['Facility Type', 'Visit Date', 'Average Time Spent']).reset_index(drop=True)
+    sort_cols = [col for col in ['Facility Type', 'Visit Date', 'Average Time Spent'] if col in df.columns]
+    df = df.sort_values(by=sort_cols).reset_index(drop=True)
 
+    print("Финальный DataFrame для сравнения:")
+    print(df)
     return df
 
 
 @keyword
 def compare_dataframes(df1, df2):
-    # Compares two DataFrames for exact match and returns differences if any
-    # Sort columns for reliable comparison
-    df1_sorted = df1.sort_index(axis=1)
-    df2_sorted = df2.sort_index(axis=1)
-    if df1_sorted.equals(df2_sorted):
+    # Привести к одинаковым типам и убрать пробелы
+    for col in ["Facility Type", "Visit Date"]:
+        if col in df1.columns:
+            df1[col] = df1[col].astype(str).str.strip()
+        if col in df2.columns:
+            df2[col] = df2[col].astype(str).str.strip()
+    if "Average Time Spent" in df1.columns and "Average Time Spent" in df2.columns:
+        df1["Average Time Spent"] = pd.to_numeric(df1["Average Time Spent"], errors="coerce").round(2)
+        df2["Average Time Spent"] = pd.to_numeric(df2["Average Time Spent"], errors="coerce").round(2)
+    # Сортировка
+    sort_cols = [col for col in ["Facility Type", "Visit Date", "Average Time Spent"] if col in df1.columns and col in df2.columns]
+    df1 = df1.sort_values(by=sort_cols).reset_index(drop=True)
+    df2 = df2.sort_values(by=sort_cols).reset_index(drop=True)
+    df1 = df1[sorted(df1.columns)]
+    df2 = df2[sorted(df2.columns)]
+    # Сравнение
+    if df1.equals(df2):
         return True, None
     else:
-        # Show differences
-        diff1 = pd.concat([df1_sorted, df2_sorted]).drop_duplicates(keep=False)
-        diff2 = pd.concat([df2_sorted, df1_sorted]).drop_duplicates(keep=False)
+        diff1 = pd.concat([df1, df2]).drop_duplicates(keep=False)
+        diff2 = pd.concat([df2, df1]).drop_duplicates(keep=False)
         diff = pd.concat([diff1, diff2]).drop_duplicates()
         return False, diff
